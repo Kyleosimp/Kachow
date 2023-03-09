@@ -1,36 +1,52 @@
-def startstop_codon(dna, frame):
-    """TO CHECK THE PRESENCE OF START CODON AND ITS POSITION"""
-    start_codons = ['ATG', 'atg']
-    stop_codons = ['TAA', 'TAG', 'TGA', 'taa', 'tag', 'tga']  # reference list of start and stop codons
-    for i in range(frame, len(dna), 3):
-        codon1 = dna[i:i+3]
-        if codon1 in start_codons:
-            position1 = dna.index(codon1)  # getting the index of the start codon
-            ORF_start = position1+1
-            for j in range(position1, len(dna), 3):
-                codon2 = dna[j:j+3]
-                if codon2 in stop_codons:
-                    position2 = dna.index(codon2)  # getting the index of the stop codon
-                    ORF_stop = position2+1
-                    break  # terminating the loop when a stop codon is found
-    try:
-        return len(dna[position1:position2])+2
-    except UnboundLocalError:
-        None
+import re
+import pathlib
 
-def finding_ORF(frame, records):
-    """TO IDENTIFY THE ORF IN THE READING FRAMES AND
-    IDENTIFY THE LONGEST ORF IN EACH SEQUENCE AND THE POSITION OF THE START CODON"""
-    sequences = [reads.seq for reads in records]  # creating a list of all the sequence reads as elements of the list
-    ORF_lengths = {}
-    positions = {}
-    max_lenth_ORFs = []
-    for read in range(len(records)):  # loop for accessing each sequence read from the list
-        seq = str(sequences[read])
-        a = startstop_codon(seq, frame)  # calling the codon reading function
-        if a == None:  # assigning value for reads with no codons
-            a = 0
-        ORF_lengths[records[read].id] = a  # creating a dictionary of ORF lengths(value) and sequence IDs(key)
-    max_len = max(ORF_lengths, key=ORF_lengths.get)  # getting the ID of the Sequence read containing the maximum length ORF
-    # printing the result
-    print("Longest ORF in Frame %d is of length %d and its ID is %s." % (frame+1, ORF_lengths[max_len], max_len))
+def read_file_as_string(file_name):
+    with open(file_name, 'r') as file:
+        return file.read()
+
+def main():
+    # replace the file path with your own
+    data = read_file_as_string("src/zincFinger.txt")
+    # header regex
+    header_pattern = re.compile(".+zinc finger.+")
+    # body regex
+    # replace the regex with your own found on lines 21 and 25 in the brackets
+    body_pattern = re.compile("[FSYCWLPHQRIMTNKVADEG\n]+C[FSYCWLPHQRIMTNKVADEG\n]{2}C[FSYCWLPHQRIMTNKVADEG\n]{17}C[FSYCWLPHQRIMTNKVADEG\n]{2}C[FSYCWLPHQRIMTNKVADEG\n]+")
+    # zinc finger regex
+    # replace the regex with your own found on lines 21 and 25 in the brackets
+    zinc_pattern = re.compile("C[FSYCWLPHQRIMTNKVADEG\n]{2}C[FSYCWLPHQRIMTNKVADEG\n]{17}C[FSYCWLPHQRIMTNKVADEG\n]{2}C")
+
+    # find and print your outputs with proper formatting using a for while loop
+    for header_matcher in header_pattern.finditer(data):
+        for zinc_matcher in zinc_pattern.finditer(data):
+            if zinc_matcher.start() < header_matcher.end():
+                continue
+            body_matcher = body_pattern.search(data, header_matcher.end())
+            if not body_matcher or zinc_matcher.start() > body_matcher.end():
+                continue
+
+            # print statements
+            print(f"{header_matcher.group()}\n")
+            print(f"Contains the zinc finger site: {zinc_matcher.group()}\n")
+            start, end = body_matcher.start() + body_matcher.group().index(zinc_matcher.group()), body_matcher.start() + body_matcher.group().index(zinc_matcher.group()) + len(zinc_matcher.group())
+            print(f"at locations: {start} {end}\n")
+
+            # split the body_matcher.group() into an array of strings
+            body_array = body_matcher.group().split("\n")
+
+            # find the new index position of the zinc_matcher.group() in the body_array
+            new_index_position = next(i for i, line in enumerate(body_array) if zinc_matcher.group() in line)
+
+            # find the new index length of the zinc_matcher.group() in the body_array
+            new_index_length = len(zinc_matcher.group())
+
+            # print the body_matcher.group() with a line of spaces between each line, stop at the zinc_matcher.group()
+            print("\n\n".join(body_array[:new_index_position]) + "\n")
+
+            # continue printing the body_matcher.group() with a line of spaces between each line, start at the zinc_matcher.group()
+            for i, line in enumerate(body_array[new_index_position:], start=new_index_position):
+                print(line)
+                if zinc_matcher.group() in line:
+                    print("*" * new_index_length)
+                print()
